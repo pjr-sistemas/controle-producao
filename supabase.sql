@@ -1,23 +1,27 @@
 -- ============================================================
 --  Controle de Produção JR Joias — banco (Supabase ldbeszdlsaubfyjtsosi)
---  Rode este arquivo INTEIRO no SQL Editor. É idempotente e NÃO apaga dados.
 --
---  O app original (Lovable) já tem as tabelas pedidos / perfis / user_roles e
---  as RPCs existe_gestor() / has_role(). Este script:
---   • garante que essas tabelas e RLS existam (não mexe se já existirem);
---   • adiciona 3 funções que a réplica usa no lugar das "Cloud Functions" do
---     Lovable: criar_usuario / definir_senha / remover_usuario.
+--  Rode este arquivo INTEIRO no SQL Editor do Supabase.
+--  É idempotente (pode rodar de novo) e NÃO apaga nenhum dado.
+--
+--  O que ele faz:
+--   1) garante as tabelas pedidos / perfis / user_roles (não mexe se já existem);
+--   2) garante as funções has_role() / existe_gestor() (só cria se faltarem);
+--   3) cria as funções criar_usuario / definir_senha / remover_usuario
+--      (substituem as "Cloud Functions" do Lovable, que a réplica não chama);
+--   4) refaz as políticas de segurança (RLS):
+--        • pedidos: toda a equipe logada LÊ; só o gestor geral grava/edita/apaga;
+--        • perfis / user_roles: logado LÊ; escrita só pelas funções acima.
 --
 --  MODELO DE ACESSO
---   • Login por USUÁRIO (vira e-mail interno usuario@jrjoias.local).
---   • 1º acesso do sistema = GESTOR GERAL (papel 'gestor').
---   • Novos acessos: só o gestor geral cria, na tela "Acessos" do app.
---   • Nenhum cadastro público.
+--   • Login por USUÁRIO (vira o e-mail interno usuario@jrjoias.local).
+--   • 1º acesso do sistema  = GESTOR GERAL (papel 'gestor'), criado na tela de login.
+--   • Demais acessos        = só o gestor geral cria, na tela "Acessos".
 -- ============================================================
 
 create extension if not exists pgcrypto with schema extensions;
 
--- ---------- Tabelas (só cria se não existirem) ----------
+-- ---------- 1. Tabelas (só cria se não existirem) ----------
 create table if not exists public.pedidos (
   id           uuid primary key default gen_random_uuid(),
   cliente      text not null,
@@ -49,21 +53,37 @@ create table if not exists public.user_roles (
   unique (user_id, role)
 );
 
--- ---------- Funções de papel ----------
-create or replace function public.has_role(_user_id uuid, _role text)
-returns boolean language sql security definer stable set search_path = public as $$
-  select exists (select 1 from public.user_roles where user_id = _user_id and role = _role);
-$$;
+-- ---------- 2. Funções de papel (só cria se faltarem — o app original já pode tê-las) ----------
+do $$
+begin
+  if not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'has_role'
+  ) then
+    execute $f$
+      create function public.has_role(_user_id uuid, _role text)
+      returns boolean language sql security definer stable set search_path = public as $body$
+        select exists (select 1 from public.user_roles where user_id = _user_id and role::text = _role);
+      $body$;
+    $f$;
+    grant execute on function public.has_role(uuid, text) to anon, authenticated;
+  end if;
 
-create or replace function public.existe_gestor()
-returns boolean language sql security definer stable set search_path = public as $$
-  select exists (select 1 from public.user_roles where role = 'gestor');
-$$;
+  if not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'existe_gestor'
+  ) then
+    execute $f$
+      create function public.existe_gestor()
+      returns boolean language sql security definer stable set search_path = public as $body$
+        select exists (select 1 from public.user_roles where role::text = 'gestor');
+      $body$;
+    $f$;
+    grant execute on function public.existe_gestor() to anon, authenticated;
+  end if;
+end $$;
 
-grant execute on function public.has_role(uuid, text) to anon, authenticated;
-grant execute on function public.existe_gestor() to anon, authenticated;
-
--- ---------- Criação / manutenção de acessos (substitui as Cloud Functions) ----------
+-- ---------- 3. Criação / manutenção de acessos ----------
 create or replace function public.criar_usuario(p_usuario text, p_senha text, p_nome text default null)
 returns uuid
 language plpgsql security definer
@@ -75,14 +95,14 @@ declare
   v_email     text;
   v_id        uuid := gen_random_uuid();
 begin
-  select not exists (select 1 from public.user_roles where role = 'gestor') into v_bootstrap;
+  select not exists (select 1 from public.user_roles where role::text = 'gestor') into v_bootstrap;
 
   if not v_bootstrap and not public.has_role(auth.uid(), 'gestor') then
     raise exception 'Apenas o gestor geral pode criar acessos';
   end if;
 
   v_user := lower(regexp_replace(trim(coalesce(p_usuario,'')), '[^a-zA-Z0-9._-]', '', 'g'));
-  if length(v_user) < 3 then raise exception 'Usuário inválido (mínimo 3 caracteres a-z 0-9 . _ -)'; end if;
+  if length(v_user) < 3 then raise exception 'Usuário inválido (mínimo 3 caracteres: a-z 0-9 . _ -)'; end if;
   if length(coalesce(p_senha,'')) < 6 then raise exception 'A senha deve ter ao menos 6 caracteres'; end if;
 
   v_email := v_user || '@jrjoias.local';
@@ -152,22 +172,28 @@ $$;
 revoke all on function public.criar_usuario(text, text, text) from public;
 revoke all on function public.definir_senha(uuid, text)      from public;
 revoke all on function public.remover_usuario(uuid)          from public;
-grant execute on function public.criar_usuario(text, text, text) to anon, authenticated; -- anon só passa no 1º acesso
+grant execute on function public.criar_usuario(text, text, text) to anon, authenticated;  -- anon só passa no 1º acesso
 grant execute on function public.definir_senha(uuid, text)      to authenticated;
 grant execute on function public.remover_usuario(uuid)          to authenticated;
 
--- ---------- RLS ----------
+-- ---------- 4. RLS ----------
 alter table public.pedidos     enable row level security;
 alter table public.perfis      enable row level security;
 alter table public.user_roles  enable row level security;
 
--- pedidos: toda a equipe logada LÊ; só o gestor geral cria / edita / apaga
-drop policy if exists "pedidos equipe"   on public.pedidos;
-drop policy if exists "pedidos leitura"  on public.pedidos;
-drop policy if exists "pedidos gestor insere" on public.pedidos;
-drop policy if exists "pedidos gestor edita"  on public.pedidos;
-drop policy if exists "pedidos gestor apaga"  on public.pedidos;
+-- apaga TODAS as políticas antigas dessas 3 tabelas (inclui as do app original)
+do $$
+declare r record;
+begin
+  for r in
+    select tablename, policyname from pg_policies
+    where schemaname = 'public' and tablename in ('pedidos','perfis','user_roles')
+  loop
+    execute format('drop policy %I on public.%I', r.policyname, r.tablename);
+  end loop;
+end $$;
 
+-- pedidos: equipe logada LÊ; só gestor geral grava
 create policy "pedidos leitura" on public.pedidos
   for select to authenticated using (true);
 create policy "pedidos gestor insere" on public.pedidos
@@ -177,17 +203,25 @@ create policy "pedidos gestor edita" on public.pedidos
 create policy "pedidos gestor apaga" on public.pedidos
   for delete to authenticated using (public.has_role(auth.uid(), 'gestor'));
 
--- perfis / user_roles: logado lê; escrita só pelas funções acima (security definer)
-drop policy if exists "perfis leitura" on public.perfis;
+-- perfis / user_roles: logado só LÊ (escrita é só pelas funções security definer)
 create policy "perfis leitura" on public.perfis
   for select to authenticated using (true);
-
-drop policy if exists "roles leitura" on public.user_roles;
 create policy "roles leitura" on public.user_roles
   for select to authenticated using (true);
 
+-- ---------- 5. Conferência (opcional — o resultado aparece na aba Results) ----------
+select
+  (select count(*) from public.pedidos)                              as pedidos,
+  (select count(*) from public.perfis)                               as perfis,
+  (select count(*) from public.user_roles where role::text='gestor') as gestores,
+  public.existe_gestor()                                             as ja_tem_gestor;
+
 -- ============================================================
---  DEPOIS DE RODAR: abra a réplica, tela "Entrar" mostrará
---  "Primeiro acesso: crie o acesso do gestor geral".
---  Crie o usuário do gestor. Os demais acessos saem da tela "Acessos".
+--  DEPOIS DE RODAR:
+--   • Se "ja_tem_gestor" = false  -> abra o site, a tela de login mostrará
+--     "Primeiro acesso: crie o acesso do gestor geral". Cadastre o gestor.
+--   • Se "ja_tem_gestor" = true   -> entre com o usuário/senha que já existe.
+--   • Novos acessos: tela "Acessos" (só o gestor geral vê os botões).
+--
+--  Se algum comando der erro, copie a mensagem inteira e me mande.
 -- ============================================================
