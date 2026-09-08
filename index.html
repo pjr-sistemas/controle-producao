@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Controle de Produção</title>
+<meta name="description" content="Acompanhe em tempo real os pedidos em aberto e atrasados da produção: prioridade, etapa e prazo de entrega." />
+<link rel="icon" href="assets/favicon.ico" type="image/x-icon" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap" />
+<style>
+  :root{
+    --radius:.5rem;
+    --background:oklch(19% .012 60);
+    --foreground:oklch(96% .008 85);
+    --surface:oklch(24% .014 62);
+    --card:oklch(23.5% .014 62);
+    --gold:oklch(79% .13 86);
+    --primary:oklch(79% .13 86);
+    --primary-foreground:oklch(20% .02 70);
+    --secondary:oklch(30% .014 62);
+    --secondary-foreground:oklch(95% .008 85);
+    --muted-foreground:oklch(72% .015 80);
+    --destructive:oklch(58% .21 27);
+    --success:oklch(68% .16 148);
+    --success-foreground:oklch(18% .02 150);
+    --warning:oklch(82% .15 85);
+    --warning-foreground:oklch(20% .02 70);
+    --danger:oklch(60% .21 27);
+    --danger-foreground:oklch(98% .005 85);
+    --border:oklch(33% .014 65);
+    --input:oklch(33% .014 65);
+    --ring:oklch(79% .13 86);
+  }
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; border-color:var(--border); }
+  html,body{ min-height:100%; }
+  body{ background:var(--background); color:var(--foreground); font-family:Barlow,ui-sans-serif,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  h1,h2,h3{ font-family:"Bebas Neue",Barlow,sans-serif; letter-spacing:.03em; font-weight:400; line-height:1.05; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font:inherit; color:inherit; cursor:pointer; background:none; border:none; }
+  input,select,textarea{ font:inherit; color:inherit; }
+  table{ border-collapse:collapse; }
+
+  .kicker{ font-size:.7rem; letter-spacing:.35em; color:var(--gold); }
+  .muted{ color:var(--muted-foreground); }
+  .wrap{ margin-inline:auto; padding-inline:1rem; }
+  .wrap-xl{ max-width:1400px; }
+  .wrap-5{ max-width:64rem; }
+
+  header.top{ border-bottom:1px solid var(--border); background:var(--surface); }
+  header.top .row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; padding-block:1rem; }
+  header.top h1{ font-size:1.9rem; }
+
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; height:2.25rem; padding-inline:.9rem; border-radius:var(--radius); font-weight:600; font-size:.9rem; white-space:nowrap; transition:opacity .15s, background .15s; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn-primary{ background:var(--primary); color:var(--primary-foreground); }
+  .btn-primary:hover:not(:disabled){ opacity:.9; }
+  .btn-outline{ border:1px solid var(--border); background:transparent; }
+  .btn-outline:hover{ background:var(--secondary); }
+  .btn-ghost:hover{ background:var(--secondary); }
+  .btn-sm{ height:2rem; padding-inline:.7rem; font-size:.82rem; }
+  .btn-icon{ height:2rem; width:2rem; padding:0; border-radius:var(--radius); }
+  .btn-icon:hover{ background:var(--secondary); }
+  .btn-block{ width:100%; }
+
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); }
+  .card-pad{ padding:1rem; }
+  .card h2{ font-size:1.25rem; }
+
+  label{ display:block; font-size:.82rem; font-weight:500; margin-bottom:.35rem; }
+  .field{ width:100%; height:2.25rem; padding-inline:.6rem; background:transparent; border:1px solid var(--input); border-radius:var(--radius); }
+  .field:focus{ outline:2px solid var(--ring); outline-offset:-1px; }
+  textarea.field{ height:auto; min-height:3.4rem; padding:.5rem .6rem; resize:vertical; }
+  select.field{ appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a89f8d' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .5rem center; padding-right:1.8rem; }
+  select.field option{ background:var(--surface); color:var(--foreground); }
+
+  .stat{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem; }
+  .stat .t{ font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted-foreground); }
+  .stat .v{ margin-top:.25rem; font-size:1.9rem; font-weight:700; }
+  .stat .v.gold{ color:var(--gold); } .stat .v.danger{ color:var(--danger); } .stat .v.warning{ color:var(--warning); }
+
+  .toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; }
+  .search{ position:relative; flex:1; min-width:220px; }
+  .search svg{ position:absolute; left:.6rem; top:50%; transform:translateY(-50%); color:var(--muted-foreground); pointer-events:none; }
+  .search .field{ padding-left:2rem; }
+
+  .tablewrap{ overflow-x:auto; }
+  table.data{ width:100%; font-size:.875rem; }
+  table.data.min{ min-width:1050px; }
+  table.data.min-h{ min-width:1000px; }
+  table.data thead{ background:var(--secondary); text-align:left; }
+  table.data th{ padding:.7rem .75rem; font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; font-weight:600; }
+  table.data td{ padding:.5rem .75rem; border-top:1px solid var(--border); }
+  table.data tbody tr:hover{ background:color-mix(in oklch, var(--secondary) 40%, transparent); }
+  .tc{ text-align:center; } .tr{ text-align:right; }
+
+  .pill{ display:inline-flex; align-items:center; justify-content:center; border-radius:999px; font-weight:700; }
+  .prio{ width:1.5rem; height:1.5rem; font-size:.72rem; }
+  .b-danger{ background:var(--danger); color:var(--danger-foreground); }
+  .b-warning{ background:var(--warning); color:var(--warning-foreground); }
+  .b-success{ background:var(--success); color:var(--success-foreground); }
+  .b-secondary{ background:var(--secondary); color:var(--secondary-foreground); }
+  .tag{ display:inline-block; border-radius:var(--radius); padding:.15rem .5rem; font-size:.72rem; font-weight:600; }
+  .txt-success{ color:var(--success); } .txt-danger{ color:var(--danger); } .txt-muted{ color:var(--muted-foreground); } .txt-gold{ color:var(--gold); }
+
+  .rowline{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; border:1px solid var(--border); border-radius:var(--radius); padding:.5rem .75rem; }
+
+  dialog{ border:none; padding:0; margin:auto; background:transparent; color:var(--foreground); max-width:min(32rem,92vw); width:100%; }
+  dialog::backdrop{ background:rgba(0,0,0,.8); }
+  .modal{ background:var(--background); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; max-height:90vh; overflow-y:auto; }
+  .modal h3{ font-size:1.15rem; font-family:Barlow; font-weight:600; letter-spacing:0; }
+  .modal .sub{ font-size:.85rem; color:var(--muted-foreground); margin-top:.15rem; }
+  .grid2{ display:grid; gap:1rem; }
+  @media (min-width:560px){ .grid2{ grid-template-columns:1fr 1fr; } }
+  .stack{ display:flex; flex-direction:column; gap:1rem; }
+  .stack-sm{ display:flex; flex-direction:column; gap:.5rem; }
+  .modal-foot{ display:flex; justify-content:flex-end; gap:.5rem; margin-top:.25rem; }
+
+  #toasts{ position:fixed; top:1rem; right:1rem; z-index:100; display:flex; flex-direction:column; gap:.5rem; max-width:min(24rem,92vw); }
+  .toast{ background:var(--card); border:1px solid var(--border); border-left-width:3px; border-radius:var(--radius); padding:.7rem .9rem; font-size:.85rem; box-shadow:0 8px 24px rgba(0,0,0,.35); animation:tin .18s ease; }
+  .toast.ok{ border-left-color:var(--success); }
+  .toast.err{ border-left-color:var(--destructive); }
+  @keyframes tin{ from{ opacity:0; transform:translateX(12px); } }
+
+  .center{ min-height:100vh; display:grid; place-items:center; padding:2.5rem 1rem; }
+  .loading{ padding:4rem 1rem; text-align:center; color:var(--muted-foreground); }
+  .page{ min-height:100vh; background:var(--background); }
+  main.body{ display:flex; flex-direction:column; gap:1.5rem; padding-block:1.5rem; }
+  .statgrid{ display:grid; gap:.75rem; }
+  @media (min-width:640px){ .statgrid{ grid-template-columns:repeat(3,1fr); } }
+  .filterbar{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:.75rem; }
+  .filterbar .fb{ display:flex; flex-direction:column; gap:.25rem; }
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Carregando…</div></div>
+<div id="toasts"></div>
+<noscript><div class="loading">Este aplicativo precisa de JavaScript ativado.</div></noscript>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+/* ===== Configuração (mesma do app original — Lovable Cloud / Supabase) ===== */
+const SUPABASE_URL = 'https://ldbeszdlsaubfyjtsosi.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_brZmQrqMgBc-66bVfxAu4w_pgihloO-';
+const EMAIL_DOMAIN = 'jrjoias.local';
+
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+});
+
+/* ===== Constantes ===== */
+const ORIGENS = ['PRESTAÇÃO', 'PEDIDO', 'VENDAS (JR)', 'VENDAS (BG)', 'VENDAS (BG) PROMO.'];
+const ETAPAS = ['ESTOQUE', 'ALMOXARIFADO', 'OFICINA', 'GALVÂNICA', 'BANHO', 'CATAFORÉTICO', 'PADRONIZAÇÃO', 'FINALIZADO'];
+const PRIORIDADES = [{ valor: 1, rotulo: '1 · Alta' }, { valor: 2, rotulo: '2 · Média' }, { valor: 3, rotulo: '3 · Baixa' }];
+
+/* ===== Helpers ===== */
+const app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const primeiroDiaMes = () => hoje().slice(0, 8) + '01';
+const fmtData = s => { if (!s) return '—'; const [a,m,d] = String(s).slice(0,10).split('-'); return `${d}/${m}/${a}`; };
+const fmtMoeda = v => v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+const diasRestantes = s => {
+  const [ay,am,ad] = hoje().split('-').map(Number);
+  const [by,bm,bd] = String(s).slice(0,10).split('-').map(Number);
+  return Math.round((Date.UTC(by,bm-1,bd) - Date.UTC(ay,am-1,ad)) / 864e5);
+};
+const normUsuario = u => u.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9._-]/g,'');
+const emailDe = u => `${normUsuario(u)}@${EMAIL_DOMAIN}`;
+
+function toast(msg, tipo = 'ok'){
+  const box = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${tipo}`;
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 4200);
+}
+const iconSearch = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>`;
+
+/* ===== Sessão ===== */
+let sessao = null, carregandoSessao = true, souGestor = false;
+
+async function carregarPapel(){
+  souGestor = false;
+  const uid = sessao?.user?.id;
+  if (!uid) return;
+  try { const { data } = await sb.rpc('has_role', { _user_id: uid, _role: 'gestor' }); souGestor = data === true; }
+  catch (_) { souGestor = false; }
+}
+
+sb.auth.getSession().then(async ({ data }) => {
+  sessao = data.session; await carregarPapel();
+  carregandoSessao = false; route();
+});
+sb.auth.onAuthStateChange(async (_e, s) => {
+  const antes = !!sessao;
+  sessao = s; await carregarPapel();
+  carregandoSessao = false;
+  if (antes !== !!s) route();
+});
+
+/* ===== Router ===== */
+async function route(){
+  window.scrollTo(0, 0);
+  if (carregandoSessao){ app.innerHTML = `<div class="loading">Carregando…</div>`; return; }
+  const h = (location.hash || '#/').replace(/^#/, '');
+
+  if (h.startsWith('/auth')){
+    if (sessao) { location.hash = '#/'; return; }
+    return renderAuth();
+  }
+  if (!sessao){ location.hash = '#/auth'; return; }
+
+  if (h.startsWith('/historico')) return renderHistorico();
+  if (h.startsWith('/usuarios')) return renderUsuarios();
+  return renderResumo();
+}
+window.addEventListener('hashchange', route);
+
+/* ============================================================
+   AUTH  (#/auth)
+   ============================================================ */
+const authState = { existeGestor: null, busy: false };
+
+async function renderAuth(){
+  const a = authState;
+  if (a.existeGestor === null){
+    try { const { data } = await sb.rpc('existe_gestor'); a.existeGestor = data === true; }
+    catch (_) { a.existeGestor = true; }
+  }
+  const bootstrap = a.existeGestor === false;
+
+  app.innerHTML = `
+    <main class="center">
+      <div class="card" style="width:100%;max-width:28rem">
+        <div class="card-pad" style="text-align:center">
+          <h1 style="font-size:2rem">Controle de Produção</h1>
+          <p class="muted" style="font-size:.9rem;margin-top:.25rem">
+            ${bootstrap ? 'Primeiro acesso: crie o acesso do gestor geral' : 'Entre com seu usuário e senha'}
+          </p>
+        </div>
+        <div class="card-pad" style="padding-top:0">
+          <form id="f" class="stack">
+            <div>
+              <label for="usuario">Usuário</label>
+              <input class="field" id="usuario" autocomplete="username" required placeholder="${bootstrap ? 'gestor' : 'seu usuário'}" />
+            </div>
+            ${bootstrap ? `
+            <div>
+              <label for="nome">Nome completo</label>
+              <input class="field" id="nome" />
+            </div>` : ''}
+            <div>
+              <label for="senha">Senha</label>
+              <input class="field" id="senha" type="password" required minlength="6" autocomplete="${bootstrap ? 'new-password' : 'current-password'}" />
+            </div>
+            ${bootstrap ? `
+            <div>
+              <label for="confirmar">Confirmar senha</label>
+              <input class="field" id="confirmar" type="password" required minlength="6" autocomplete="new-password" />
+            </div>` : ''}
+            <button class="btn btn-primary btn-block" type="submit" id="sub">${bootstrap ? 'Criar acesso do gestor' : 'Entrar'}</button>
+          </form>
+          ${bootstrap ? '' : `<p class="muted" style="text-align:center;font-size:.78rem;margin-top:1rem">Novos acessos são criados pelo gestor geral dentro do sistema.</p>`}
+        </div>
+      </div>
+    </main>`;
+
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    if (a.busy) return;
+    const usuario = document.getElementById('usuario').value;
+    const senha = document.getElementById('senha').value;
+    const sub = document.getElementById('sub');
+    a.busy = true; sub.disabled = true;
+
+    try {
+      if (bootstrap){
+        const nome = document.getElementById('nome').value;
+        if (senha !== document.getElementById('confirmar').value){ toast('As senhas não conferem', 'err'); return; }
+        const { error } = await sb.rpc('criar_usuario', { p_usuario: usuario, p_senha: senha, p_nome: nome });
+        if (error) throw error;
+        const { error: e2 } = await sb.auth.signInWithPassword({ email: emailDe(usuario), password: senha });
+        if (e2) throw e2;
+        toast('Acesso do gestor criado!');
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email: emailDe(usuario), password: senha });
+        if (error) throw new Error('Usuário ou senha incorretos');
+      }
+      location.hash = '#/';
+    } catch (err) {
+      toast(err?.message || 'Não foi possível entrar', 'err');
+    } finally {
+      a.busy = false; sub.disabled = false;
+    }
+  };
+}
+
+/* ============================================================
+   RESUMO  (#/)
+   ============================================================ */
+let cacheAbertos = null;
+const resumo = { busca: '', etapa: 'TODAS' };
+
+function headerHTML(titulo, extra = ''){
+  return `
+  <header class="top">
+    <div class="wrap wrap-xl row">
+      <div>
+        <h1>${esc(titulo)}</h1>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem">${extra}</div>
+    </div>
+  </header>`;
+}
+
+async function carregarAbertos(){
+  const { data, error } = await sb.from('pedidos').select('*')
+    .eq('entregue', false)
+    .order('entrega', { ascending: true })
+    .order('prioridade', { ascending: true });
+  if (error){ toast('Erro ao carregar pedidos: ' + error.message, 'err'); return []; }
+  return data || [];
+}
+
+async function renderResumo(){
+  if (!cacheAbertos) cacheAbertos = await carregarAbertos();
+  pintarResumo();
+}
+
+async function recarregarResumo(){
+  cacheAbertos = await carregarAbertos();
+  if ((location.hash || '#/') === '#/' || location.hash === '') pintarResumo();
+}
+
+function pintarResumo(){
+  const todos = cacheAbertos || [];
+  const b = resumo.busca.trim().toLowerCase();
+  const lista = todos.filter(p =>
+    (resumo.etapa === 'TODAS' || p.etapa === resumo.etapa) &&
+    (b === '' || p.cliente.toLowerCase().includes(b) || p.origem.toLowerCase().includes(b))
+  );
+  const atrasados = todos.filter(p => diasRestantes(p.entrega) < 0).length;
+  const paraHoje = todos.filter(p => diasRestantes(p.entrega) === 0).length;
+
+  app.innerHTML = `
+  <div class="page">
+    ${headerHTML('Controle de Produção', `
+      <span class="muted" style="font-size:.85rem" class="hide-sm">${fmtData(hoje())}</span>
+      <a class="btn btn-outline btn-sm" href="#/historico">Histórico</a>
+      <a class="btn btn-outline btn-sm" href="#/usuarios">Acessos</a>
+      <button class="btn btn-ghost btn-icon" id="sair" title="Sair">⇥</button>
+    `)}
+    <main class="wrap wrap-xl body">
+      <div class="statgrid">
+        <div class="stat"><div class="t">Pedidos em aberto</div><div class="v gold">${todos.length}</div></div>
+        <div class="stat"><div class="t">Entregas para hoje</div><div class="v warning">${paraHoje}</div></div>
+        <div class="stat"><div class="t">Atrasados</div><div class="v danger">${atrasados}</div></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">${iconSearch}<input class="field" id="busca" placeholder="Buscar cliente ou origem" value="${esc(resumo.busca)}" /></div>
+        <select class="field" id="fetapa" style="width:210px">
+          <option value="TODAS">Todas as etapas</option>
+          ${ETAPAS.map(e => `<option value="${e}" ${resumo.etapa===e?'selected':''}>${e}</option>`).join('')}
+        </select>
+        ${souGestor ? `<button class="btn btn-primary" id="novo">+ Novo pedido</button>` : ''}
+      </div>
+
+      <div class="card" style="overflow:hidden;padding:0">
+        <div class="tablewrap">
+          <table class="data min">
+            <thead><tr>
+              <th>Cliente</th><th>Origem</th><th class="tc">Prior.</th><th>Recebimento</th><th>Entrega</th>
+              <th class="tc">Dias rest.</th><th>Etapa</th><th>Entrada na etapa</th><th>Valor</th>${souGestor ? `<th class="tr">Ações</th>` : ''}
+            </tr></thead>
+            <tbody>
+              ${lista.length === 0 ? `<tr><td colspan="${souGestor ? 10 : 9}" style="text-align:center;padding:2.5rem" class="muted">Nenhum pedido em aberto.</td></tr>` : ''}
+              ${lista.map(p => {
+                const dr = diasRestantes(p.entrega);
+                const prioCls = p.prioridade === 1 ? 'b-danger' : p.prioridade === 2 ? 'b-warning' : 'b-success';
+                const drCls = dr < 0 ? 'b-danger' : dr === 0 ? 'b-warning' : 'b-secondary';
+                return `<tr>
+                  <td style="font-weight:600">${esc(p.cliente)}</td>
+                  <td class="muted">${esc(p.origem)}</td>
+                  <td class="tc"><span class="pill prio ${prioCls}">${p.prioridade}</span></td>
+                  <td>${fmtData(p.recebimento)}</td>
+                  <td>${fmtData(p.entrega)}</td>
+                  <td class="tc"><span class="tag ${drCls}">${dr < 0 ? Math.abs(dr) + ' atraso' : dr}</span></td>
+                  <td>${souGestor ? `
+                    <select class="field" data-etapa="${p.id}" style="height:2rem;width:170px">
+                      ${ETAPAS.map(e => `<option ${p.etapa===e?'selected':''}>${e}</option>`).join('')}
+                    </select>` : esc(p.etapa)}
+                  </td>
+                  <td>${fmtData(p.data_entrada)}</td>
+                  <td>${fmtMoeda(p.valor)}</td>
+                  ${souGestor ? `<td class="tr">
+                    <div style="display:flex;justify-content:flex-end;gap:.15rem">
+                      <button class="btn btn-ghost btn-icon" data-entregar="${p.id}" title="Confirmar entrega" style="color:var(--success)">✓</button>
+                      <button class="btn btn-ghost btn-icon" data-editar="${p.id}" title="Editar">✎</button>
+                      <button class="btn btn-ghost btn-icon" data-excluir="${p.id}" title="Excluir" style="color:var(--destructive)">🗑</button>
+                    </div>
+                  </td>` : ''}
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>`;
+
+  document.getElementById('sair').onclick = async () => { await sb.auth.signOut(); location.hash = '#/auth'; };
+  const busca = document.getElementById('busca');
+  busca.oninput = () => { resumo.busca = busca.value; const pos = busca.selectionStart; pintarResumo(); const nb = document.getElementById('busca'); nb.focus(); nb.setSelectionRange(pos, pos); };
+  document.getElementById('fetapa').onchange = (e) => { resumo.etapa = e.target.value; pintarResumo(); };
+
+  if (souGestor){
+    document.getElementById('novo').onclick = () => abrirDialogoPedido(null);
+    app.querySelectorAll('[data-etapa]').forEach(s => s.onchange = async () => {
+      const { error } = await sb.from('pedidos').update({ etapa: s.value, data_entrada: hoje() }).eq('id', s.dataset.etapa);
+      if (error){ toast('Não foi possível atualizar a etapa', 'err'); return; }
+      recarregarResumo();
+    });
+    app.querySelectorAll('[data-entregar]').forEach(b => b.onclick = async () => {
+      const p = (cacheAbertos || []).find(x => x.id === b.dataset.entregar);
+      const { error } = await sb.from('pedidos').update({ entregue: true, entregue_em: hoje(), etapa: 'FINALIZADO' }).eq('id', b.dataset.entregar);
+      if (error){ toast('Não foi possível confirmar a entrega', 'err'); return; }
+      toast(`Entrega de ${p?.cliente || ''} confirmada — movido para o histórico`);
+      recarregarResumo();
+    });
+    app.querySelectorAll('[data-editar]').forEach(b => b.onclick = () => {
+      const p = (cacheAbertos || []).find(x => x.id === b.dataset.editar);
+      if (p) abrirDialogoPedido(p);
+    });
+    app.querySelectorAll('[data-excluir]').forEach(b => b.onclick = () => {
+      const p = (cacheAbertos || []).find(x => x.id === b.dataset.excluir);
+      if (p) confirmarExclusao(p);
+    });
+  }
+}
+
+/* ===== Diálogo de pedido ===== */
+function campoPadrao(){
+  return { cliente:'', origem:'PEDIDO', prioridade:'3', recebimento:hoje(), entrega:hoje(), etapa:'ESTOQUE', data_entrada:hoje(), valor:'', observacao:'' };
+}
+
+function abrirDialogoPedido(pedido){
+  const d = document.createElement('dialog');
+  const v = pedido ? {
+    cliente: pedido.cliente, origem: pedido.origem, prioridade: String(pedido.prioridade),
+    recebimento: pedido.recebimento, entrega: pedido.entrega, etapa: pedido.etapa,
+    data_entrada: pedido.data_entrada, valor: pedido.valor == null ? '' : String(pedido.valor),
+    observacao: pedido.observacao ?? ''
+  } : campoPadrao();
+
+  d.innerHTML = `
+    <div class="modal">
+      <h3>${pedido ? 'Editar pedido' : 'Novo pedido'}</h3>
+      <p class="sub">Preencha as informações do pedido em produção.</p>
+      <form id="pf" class="stack" style="margin-top:1rem">
+        <div class="stack-sm">
+          <label for="c">Cliente</label>
+          <input class="field" id="c" required value="${esc(v.cliente)}" />
+        </div>
+        <div class="grid2">
+          <div class="stack-sm"><label>Origem do pedido</label>
+            <select class="field" id="origem">${ORIGENS.map(o => `<option ${v.origem===o?'selected':''}>${o}</option>`).join('')}</select></div>
+          <div class="stack-sm"><label>Prioridade</label>
+            <select class="field" id="prioridade">${PRIORIDADES.map(p => `<option value="${p.valor}" ${v.prioridade===String(p.valor)?'selected':''}>${p.rotulo}</option>`).join('')}</select></div>
+          <div class="stack-sm"><label for="rec">Recebimento</label>
+            <input class="field" id="rec" type="date" required value="${v.recebimento}" /></div>
+          <div class="stack-sm"><label for="ent">Entrega</label>
+            <input class="field" id="ent" type="date" required value="${v.entrega}" /></div>
+          <div class="stack-sm"><label>Etapa do pedido</label>
+            <select class="field" id="etapa">${ETAPAS.map(e => `<option ${v.etapa===e?'selected':''}>${e}</option>`).join('')}</select></div>
+          <div class="stack-sm"><label for="de">Data de entrada na etapa</label>
+            <input class="field" id="de" type="date" required value="${v.data_entrada}" /></div>
+        </div>
+        <div class="stack-sm">
+          <label for="val">Valor do pedido (R$)</label>
+          <input class="field" id="val" inputmode="decimal" placeholder="opcional" value="${esc(v.valor)}" />
+        </div>
+        <div class="stack-sm">
+          <label for="obs">Observação</label>
+          <textarea class="field" id="obs" rows="2">${esc(v.observacao)}</textarea>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-outline" id="cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="salvar">Salvar</button>
+        </div>
+      </form>
+    </div>`;
+
+  document.body.appendChild(d);
+  d.showModal();
+  d.querySelector('#cancel').onclick = () => d.close();
+  d.addEventListener('close', () => d.remove());
+
+  d.querySelector('#pf').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = d.querySelector('#salvar'); btn.disabled = true; btn.textContent = 'Salvando...';
+    const obj = {
+      cliente: d.querySelector('#c').value.trim(),
+      origem: d.querySelector('#origem').value,
+      prioridade: Number(d.querySelector('#prioridade').value),
+      recebimento: d.querySelector('#rec').value,
+      entrega: d.querySelector('#ent').value,
+      etapa: d.querySelector('#etapa').value,
+      data_entrada: d.querySelector('#de').value,
+      valor: d.querySelector('#val').value === '' ? null : Number(d.querySelector('#val').value.replace(',', '.')),
+      observacao: d.querySelector('#obs').value.trim() || null,
+    };
+    const { error } = pedido
+      ? await sb.from('pedidos').update(obj).eq('id', pedido.id)
+      : await sb.from('pedidos').insert(obj);
+    if (error){ btn.disabled = false; btn.textContent = 'Salvar'; toast('Não foi possível salvar: ' + error.message, 'err'); return; }
+    toast(pedido ? 'Pedido atualizado' : 'Pedido cadastrado');
+    d.close();
+    recarregarResumo();
+  };
+}
+
+function confirmarExclusao(pedido){
+  const d = document.createElement('dialog');
+  d.innerHTML = `
+    <div class="modal">
+      <h3>Excluir pedido?</h3>
+      <p class="sub">O pedido de ${esc(pedido.cliente)} será removido definitivamente.</p>
+      <div class="modal-foot">
+        <button class="btn btn-outline" id="cancel">Cancelar</button>
+        <button class="btn btn-primary" id="ok" style="background:var(--destructive);color:#fff">Excluir</button>
+      </div>
+    </div>`;
+  document.body.appendChild(d);
+  d.showModal();
+  d.addEventListener('close', () => d.remove());
+  d.querySelector('#cancel').onclick = () => d.close();
+  d.querySelector('#ok').onclick = async () => {
+    const { error } = await sb.from('pedidos').delete().eq('id', pedido.id);
+    d.close();
+    if (error){ toast('Não foi possível excluir', 'err'); return; }
+    toast('Pedido excluído');
+    recarregarResumo();
+  };
+}
+
+/* ============================================================
+   HISTÓRICO  (#/historico)
+   ============================================================ */
+const hist = { inicio: primeiroDiaMes(), fim: hoje(), situacao: 'TODOS', base: 'entrega', linhas: [], carregando: true };
+
+async function renderHistorico(){
+  await carregarHistorico();
+}
+
+async function carregarHistorico(){
+  hist.carregando = true; pintarHistorico();
+  let q = sb.from('pedidos').select('*').gte(hist.base, hist.inicio).lte(hist.base, hist.fim).order(hist.base, { ascending: true });
+  if (hist.situacao === 'ENTREGUES') q = q.eq('entregue', true);
+  if (hist.situacao === 'ABERTOS') q = q.eq('entregue', false);
+  const { data, error } = await q;
+  hist.carregando = false;
+  hist.linhas = error ? [] : (data || []);
+  if (error) toast('Erro ao carregar histórico: ' + error.message, 'err');
+  pintarHistorico();
+}
+
+function pintarHistorico(){
+  const M = hist.linhas;
+  app.innerHTML = `
+  <div class="page">
+    ${headerHTML('Histórico de Pedidos', `<a class="btn btn-outline btn-sm" href="#/">Voltar ao resumo</a>`)}
+    <main class="wrap wrap-xl body">
+      <div class="card"><div class="card-pad filterbar">
+        <div class="fb"><label for="i">De</label><input class="field" id="i" type="date" value="${hist.inicio}"></div>
+        <div class="fb"><label for="f">Até</label><input class="field" id="f" type="date" value="${hist.fim}"></div>
+        <div class="fb"><label>Data base</label>
+          <select class="field" id="base" style="width:180px">
+            <option value="entrega" ${hist.base==='entrega'?'selected':''}>Data de entrega</option>
+            <option value="recebimento" ${hist.base==='recebimento'?'selected':''}>Data de recebimento</option>
+          </select></div>
+        <div class="fb"><label>Situação</label>
+          <select class="field" id="sit" style="width:160px">
+            <option value="TODOS" ${hist.situacao==='TODOS'?'selected':''}>Todos</option>
+            <option value="ENTREGUES" ${hist.situacao==='ENTREGUES'?'selected':''}>Entregues</option>
+            <option value="ABERTOS" ${hist.situacao==='ABERTOS'?'selected':''}>Em aberto</option>
+          </select></div>
+        <button class="btn btn-primary" id="pdf" ${M.length===0?'disabled':''}>⬇ Gerar PDF</button>
+      </div></div>
+
+      <div class="card" style="overflow:hidden;padding:0">
+        <div class="tablewrap">
+          <table class="data min-h">
+            <thead><tr>
+              <th>Cliente</th><th>Origem</th><th class="tc">Prior.</th><th>Recebimento</th><th>Entrega</th><th>Etapa</th><th>Valor</th><th>Situação</th>${souGestor ? `<th class="tr">Ações</th>` : ''}
+            </tr></thead>
+            <tbody>
+              ${hist.carregando ? `<tr><td colspan="${souGestor ? 9 : 8}" style="text-align:center;padding:2.5rem" class="muted">Carregando...</td></tr>` : ''}
+              ${!hist.carregando && M.length === 0 ? `<tr><td colspan="${souGestor ? 9 : 8}" style="text-align:center;padding:2.5rem" class="muted">Nenhum pedido nesse período.</td></tr>` : ''}
+              ${M.map(p => `<tr>
+                <td style="font-weight:600">${esc(p.cliente)}</td>
+                <td class="muted">${esc(p.origem)}</td>
+                <td class="tc">${p.prioridade}</td>
+                <td>${fmtData(p.recebimento)}</td>
+                <td>${fmtData(p.entrega)}</td>
+                <td>${esc(p.etapa)}</td>
+                <td>${fmtMoeda(p.valor)}</td>
+                <td>${p.entregue
+                  ? `<span class="txt-success">Entregue em ${fmtData(p.entregue_em)}</span>`
+                  : diasRestantes(p.entrega) < 0
+                    ? `<span class="txt-danger">Atrasado</span>`
+                    : `<span class="txt-muted">Em aberto</span>`}</td>
+                ${souGestor ? `<td class="tr"><button class="btn btn-ghost btn-icon" data-hexcluir="${p.id}" title="Excluir lançamento" style="color:var(--destructive)">🗑</button></td>` : ''}
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>`;
+
+  const upd = (k, v) => { hist[k] = v; carregarHistorico(); };
+  document.getElementById('i').onchange = e => upd('inicio', e.target.value);
+  document.getElementById('f').onchange = e => upd('fim', e.target.value);
+  document.getElementById('base').onchange = e => upd('base', e.target.value);
+  document.getElementById('sit').onchange = e => upd('situacao', e.target.value);
+  const pdf = document.getElementById('pdf');
+  if (pdf) pdf.onclick = gerarPDF;
+
+  app.querySelectorAll('[data-hexcluir]').forEach(b => b.onclick = () => {
+    const p = hist.linhas.find(x => x.id === b.dataset.hexcluir);
+    if (!p) return;
+    const d = document.createElement('dialog');
+    d.innerHTML = `
+      <div class="modal">
+        <h3>Excluir lançamento?</h3>
+        <p class="sub">O pedido de ${esc(p.cliente)} (${p.entregue ? 'entregue em ' + fmtData(p.entregue_em) : 'em aberto'}) será removido definitivamente do histórico.</p>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="c">Cancelar</button>
+          <button class="btn btn-primary" id="ok" style="background:var(--destructive);color:#fff">Excluir</button>
+        </div>
+      </div>`;
+    document.body.appendChild(d); d.showModal();
+    d.addEventListener('close', () => d.remove());
+    d.querySelector('#c').onclick = () => d.close();
+    d.querySelector('#ok').onclick = async () => {
+      const { error } = await sb.from('pedidos').delete().eq('id', p.id);
+      d.close();
+      if (error){ toast('Não foi possível excluir: ' + error.message, 'err'); return; }
+      toast('Lançamento excluído');
+      cacheAbertos = null;
+      carregarHistorico();
+    };
+  });
+}
+
+let pdfLibs = null;
+async function gerarPDF(){
+  try {
+    if (!pdfLibs){
+      await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+      await import('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js');
+      pdfLibs = window.jspdf;
+    }
+    const { jsPDF } = pdfLibs;
+    const doc = new jsPDF({ orientation: 'landscape' });
+    doc.setFontSize(16);
+    doc.text('Histórico de Pedidos', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Período (${hist.base === 'entrega' ? 'entrega' : 'recebimento'}): ${fmtData(hist.inicio)} a ${fmtData(hist.fim)}  ·  Emitido em ${fmtData(hoje())}  ·  ${hist.linhas.length} pedido(s)`, 14, 22);
+
+    const totalPedidos = hist.linhas.length;
+    const somaValores = hist.linhas.reduce((s, p) => s + (Number(p.valor) || 0), 0);
+
+    doc.autoTable({
+      startY: 27,
+      head: [['Cliente', 'Origem', 'Prior.', 'Recebimento', 'Entrega', 'Etapa', 'Entrada', 'Valor', 'Situação']],
+      body: hist.linhas.map(p => [
+        p.cliente, p.origem, String(p.prioridade), fmtData(p.recebimento), fmtData(p.entrega),
+        p.etapa, fmtData(p.data_entrada), fmtMoeda(p.valor),
+        p.entregue ? `Entregue ${fmtData(p.entregue_em)}` : diasRestantes(p.entrega) < 0 ? 'Atrasado' : 'Em aberto'
+      ]),
+      foot: [[
+        { content: `Total: ${totalPedidos} pedido(s)`, colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: fmtMoeda(somaValores), styles: { fontStyle: 'bold' } },
+        ''
+      ]],
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [45, 41, 34], textColor: [226, 183, 90] },
+      footStyles: { fillColor: [45, 41, 34], textColor: [226, 183, 90], fontStyle: 'bold' },
+      showFoot: 'lastPage',
+    });
+    doc.save(`historico-pedidos-${hist.inicio}-a-${hist.fim}.pdf`);
+  } catch (e) {
+    toast('Não foi possível gerar o PDF: ' + (e?.message || e), 'err');
+  }
+}
+
+/* ============================================================
+   ACESSOS  (#/usuarios)
+   ============================================================ */
+const usu = { souGestor: null, lista: [], busy: false };
+
+async function renderUsuarios(){
+  usu.uid = sessao?.user?.id;
+  usu.souGestor = souGestor;
+  await carregarUsuarios();
+}
+
+async function carregarUsuarios(){
+  const [{ data: perfis, error }, { data: roles }] = await Promise.all([
+    sb.from('perfis').select('*').order('created_at'),
+    sb.from('user_roles').select('user_id, role'),
+  ]);
+  if (error){ toast('Erro ao carregar acessos: ' + error.message, 'err'); }
+  const gestores = new Set((roles || []).filter(r => r.role === 'gestor').map(r => r.user_id));
+  usu.lista = (perfis || []).map(p => ({ ...p, gestor: gestores.has(p.id) }));
+  pintarUsuarios();
+}
+
+function pintarUsuarios(){
+  app.innerHTML = `
+  <div class="page">
+    ${headerHTML('Acessos', `<a class="btn btn-ghost btn-sm" href="#/">← Voltar</a>`)}
+    <main class="wrap wrap-5 body">
+      ${usu.souGestor === false ? `<p class="muted" style="font-size:.9rem">Apenas o gestor geral pode criar ou remover acessos.</p>` : ''}
+
+      ${usu.souGestor ? `
+      <div class="card">
+        <div class="card-pad"><h2>Novo acesso</h2></div>
+        <div class="card-pad" style="padding-top:0">
+          <form id="nf" style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end">
+            <div class="stack-sm"><label for="nu">Usuário</label><input class="field" id="nu" required></div>
+            <div class="stack-sm"><label for="nn">Nome</label><input class="field" id="nn"></div>
+            <div class="stack-sm"><label for="ns">Senha</label><input class="field" id="ns" type="password" required minlength="6"></div>
+            <button class="btn btn-primary" type="submit" id="criar">+ Criar</button>
+          </form>
+        </div>
+      </div>` : ''}
+
+      <div class="card">
+        <div class="card-pad"><h2>Pessoas com acesso</h2></div>
+        <div class="card-pad stack-sm" style="padding-top:0">
+          ${usu.lista.length === 0 ? `<p class="muted" style="font-size:.9rem">Nenhum acesso cadastrado ainda.</p>` : ''}
+          ${usu.lista.map(u => `
+            <div class="rowline">
+              <div>
+                <p style="font-weight:600">${esc(u.usuario)}${u.gestor ? `<span class="txt-gold" style="margin-left:.5rem;font-size:.72rem">GESTOR GERAL</span>` : ''}</p>
+                ${u.nome ? `<p class="muted" style="font-size:.85rem">${esc(u.nome)}</p>` : ''}
+              </div>
+              ${usu.souGestor ? `
+              <div style="display:flex;gap:.5rem">
+                <button class="btn btn-outline btn-sm" data-senha="${esc(u.id)}" data-usuario="${esc(u.usuario)}">🔑 Senha</button>
+                ${u.id !== usu.uid ? `<button class="btn btn-outline btn-sm" data-rm="${esc(u.id)}" data-usuario="${esc(u.usuario)}">🗑</button>` : ''}
+              </div>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>
+    </main>
+  </div>`;
+
+  const nf = document.getElementById('nf');
+  if (nf) nf.onsubmit = async (e) => {
+    e.preventDefault();
+    if (usu.busy) return;
+    usu.busy = true;
+    const btn = document.getElementById('criar'); btn.disabled = true;
+    try {
+      const { error } = await sb.rpc('criar_usuario', {
+        p_usuario: document.getElementById('nu').value,
+        p_senha: document.getElementById('ns').value,
+        p_nome: document.getElementById('nn').value,
+      });
+      if (error) throw error;
+      toast('Acesso criado');
+      await carregarUsuarios();
+    } catch (err) {
+      toast(err?.message || 'Não foi possível criar o acesso', 'err');
+    } finally {
+      usu.busy = false;
+      const b = document.getElementById('criar'); if (b) b.disabled = false;
+    }
+  };
+
+  app.querySelectorAll('[data-senha]').forEach(b => b.onclick = async () => {
+    const nova = window.prompt(`Nova senha para "${b.dataset.usuario}" (mínimo 6 caracteres)`);
+    if (!nova) return;
+    const { error } = await sb.rpc('definir_senha', { p_id: b.dataset.senha, p_senha: nova });
+    if (error){ toast(error.message || 'Não foi possível alterar a senha', 'err'); return; }
+    toast('Senha atualizada');
+  });
+
+  app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => {
+    const d = document.createElement('dialog');
+    d.innerHTML = `
+      <div class="modal">
+        <h3>Remover acesso</h3>
+        <p class="sub">${esc(b.dataset.usuario)} não poderá mais entrar no sistema.</p>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="c">Cancelar</button>
+          <button class="btn btn-primary" id="ok" style="background:var(--destructive);color:#fff">Remover</button>
+        </div>
+      </div>`;
+    document.body.appendChild(d); d.showModal();
+    d.addEventListener('close', () => d.remove());
+    d.querySelector('#c').onclick = () => d.close();
+    d.querySelector('#ok').onclick = async () => {
+      const { error } = await sb.rpc('remover_usuario', { p_id: b.dataset.rm });
+      d.close();
+      if (error){ toast(error.message || 'Não foi possível remover', 'err'); return; }
+      toast('Acesso removido');
+      carregarUsuarios();
+    };
+  });
+}
+
+/* ===== limpa cache ao sair do resumo, revalida ao voltar ===== */
+window.addEventListener('hashchange', () => {
+  const h = (location.hash || '#/').replace(/^#/, '');
+  if (h === '/' || h === '') cacheAbertos = null;
+});
+</script>
+</body>
+</html>
