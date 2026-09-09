@@ -4,7 +4,7 @@ $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$Port/")
 $listener.Start()
 Write-Host "Serving $Root at http://localhost:$Port/"
-$mime = @{ ".html"="text/html"; ".js"="text/javascript"; ".css"="text/css"; ".png"="image/png"; ".jpg"="image/jpeg"; ".svg"="image/svg+xml"; ".json"="application/json"; ".ico"="image/x-icon" }
+$mime = @{ ".html"="text/html"; ".js"="text/javascript"; ".css"="text/css"; ".png"="image/png"; ".jpg"="image/jpeg"; ".svg"="image/svg+xml"; ".json"="application/json"; ".ico"="image/x-icon"; ".webmanifest"="application/manifest+json" }
 while ($listener.IsListening) {
   try {
     $ctx = $listener.GetContext()

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="36%" cy="28%" r="90%">
+      <stop offset="0%" stop-color="#3a2f20"/>
+      <stop offset="52%" stop-color="#241d15"/>
+      <stop offset="100%" stop-color="#100d09"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#fbe6ab"/>
+      <stop offset="40%" stop-color="#e3ba5f"/>
+      <stop offset="100%" stop-color="#a5792f"/>
+    </linearGradient>
+    <linearGradient id="goldEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#efce85"/>
+      <stop offset="100%" stop-color="#b0842f"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#fff0cf"/>
+      <stop offset="45%" stop-color="#f2cd80"/>
+      <stop offset="100%" stop-color="#c99a44"/>
+    </linearGradient>
+    <linearGradient id="table" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#fffaea"/>
+      <stop offset="100%" stop-color="#f3d698"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="500" height="500" rx="100" fill="url(#bg)"/>
+  <g transform="translate(256 256)">
+    <g>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(0)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(40)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(80)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(120)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(160)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(200)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(240)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(280)"/>
+      <rect x="-30" y="-236" width="60" height="92" rx="17" fill="url(#goldEdge)" transform="rotate(320)"/>
+      <circle r="180" fill="url(#gold)"/>
+      <circle r="128" fill="url(#bg)"/>
+      <circle r="128" fill="none" stroke="#6f5122" stroke-width="5"/>
+    </g>
+    <g>
+      <path d="M0,-104 L92,-52 L92,52 L0,116 L-92,52 L-92,-52 Z" fill="url(#gem)" stroke="#845f26" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M0,-52 L54,-26 L54,28 L0,58 L-54,28 L-54,-26 Z" fill="url(#table)"/>
+      <path d="M0,-52 L0,-104 M54,-26 L92,-52 M54,28 L92,52 M0,58 L0,116 M-54,28 L-92,52 M-54,-26 L-92,-52" fill="none" stroke="#c99a4d" stroke-width="5"/>
+      <path d="M0,-104 L46,-78 M92,-52 L46,-13 M92,52 L46,40 M0,116 L-46,40 M-92,52 L-46,-13 M-92,-52 L-46,-78" fill="none" stroke="#8a6631" stroke-width="3"/>
+      <path d="M14,-22 l7,-19 l7,19 l19,7 l-19,7 l-7,19 l-7,-19 l-19,-7 z" fill="#fffdf3"/>
+    </g>
+  </g>
+</svg>
