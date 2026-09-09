@@ -263,12 +263,12 @@ async function renderAuth(){
             </div>` : ''}
             <div>
               <label for="senha">Senha</label>
-              <input class="field" id="senha" type="password" required minlength="6" autocomplete="${bootstrap ? 'new-password' : 'current-password'}" />
+              <input class="field" id="senha" type="password" required autocomplete="${bootstrap ? 'new-password' : 'current-password'}" />
             </div>
             ${bootstrap ? `
             <div>
               <label for="confirmar">Confirmar senha</label>
-              <input class="field" id="confirmar" type="password" required minlength="6" autocomplete="new-password" />
+              <input class="field" id="confirmar" type="password" required autocomplete="new-password" />
             </div>` : ''}
             <button class="btn btn-primary btn-block" type="submit" id="sub">${bootstrap ? 'Criar acesso do gestor' : 'Entrar'}</button>
           </form>
@@ -744,7 +744,7 @@ function pintarUsuarios(){
           <form id="nf" style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end">
             <div class="stack-sm"><label for="nu">Usuário</label><input class="field" id="nu" required></div>
             <div class="stack-sm"><label for="nn">Nome</label><input class="field" id="nn"></div>
-            <div class="stack-sm"><label for="ns">Senha</label><input class="field" id="ns" type="password" required minlength="6"></div>
+            <div class="stack-sm"><label for="ns">Senha</label><input class="field" id="ns" type="password" required></div>
             <button class="btn btn-primary" type="submit" id="criar">+ Criar</button>
           </form>
         </div>
@@ -795,7 +795,7 @@ function pintarUsuarios(){
   };
 
   app.querySelectorAll('[data-senha]').forEach(b => b.onclick = async () => {
-    const nova = window.prompt(`Nova senha para "${b.dataset.usuario}" (mínimo 6 caracteres)`);
+    const nova = window.prompt(`Nova senha para "${b.dataset.usuario}"`);
     if (!nova) return;
     const { error } = await sb.rpc('definir_senha', { p_id: b.dataset.senha, p_senha: nova });
     if (error){ toast(error.message || 'Não foi possível alterar a senha', 'err'); return; }

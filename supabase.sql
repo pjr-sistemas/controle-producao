@@ -17,6 +17,7 @@
 --   • Login por USUÁRIO (vira o e-mail interno usuario@jrjoias.local).
 --   • 1º acesso do sistema  = GESTOR GERAL (papel 'gestor'), criado na tela de login.
 --   • Demais acessos        = só o gestor geral cria, na tela "Acessos".
+--   • SENHA LIVRE: qualquer tamanho ou formato (só não pode ficar em branco).
 -- ============================================================
 
 create extension if not exists pgcrypto with schema extensions;
@@ -103,7 +104,7 @@ begin
 
   v_user := lower(regexp_replace(trim(coalesce(p_usuario,'')), '[^a-zA-Z0-9._-]', '', 'g'));
   if length(v_user) < 3 then raise exception 'Usuário inválido (mínimo 3 caracteres: a-z 0-9 . _ -)'; end if;
-  if length(coalesce(p_senha,'')) < 6 then raise exception 'A senha deve ter ao menos 6 caracteres'; end if;
+  if length(coalesce(p_senha,'')) < 1 then raise exception 'Informe uma senha'; end if;  -- senha livre: qualquer tamanho/formato
 
   v_email := v_user || '@jrjoias.local';
   if exists (select 1 from auth.users where email = v_email) then
@@ -148,7 +149,7 @@ begin
   if not public.has_role(auth.uid(), 'gestor') then
     raise exception 'Apenas o gestor geral pode alterar senhas';
   end if;
-  if length(coalesce(p_senha,'')) < 6 then raise exception 'A senha deve ter ao menos 6 caracteres'; end if;
+  if length(coalesce(p_senha,'')) < 1 then raise exception 'Informe uma senha'; end if;  -- senha livre: qualquer tamanho/formato
   update auth.users set encrypted_password = crypt(p_senha, gen_salt('bf')), updated_at = now()
   where id = p_id;
   if not found then raise exception 'Usuário não encontrado'; end if;
