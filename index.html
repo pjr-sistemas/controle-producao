@@ -616,17 +616,21 @@ function pintarHistorico(){
         <div class="tablewrap">
           <table class="data min-h">
             <thead><tr>
-              <th>Cliente</th><th>Origem</th><th class="tc">Prior.</th><th>Recebimento</th><th>Entrega</th><th>Etapa</th><th>Valor</th><th>Situação</th>${souGestor ? `<th class="tr">Ações</th>` : ''}
+              <th>Cliente</th><th>Origem</th><th class="tc">Prior.</th><th>Recebimento</th><th>Entrega</th><th class="tc">Dias rest.</th><th>Etapa</th><th>Valor</th><th>Situação</th>${souGestor ? `<th class="tr">Ações</th>` : ''}
             </tr></thead>
             <tbody>
-              ${hist.carregando ? `<tr><td colspan="${souGestor ? 9 : 8}" style="text-align:center;padding:2.5rem" class="muted">Carregando...</td></tr>` : ''}
-              ${!hist.carregando && M.length === 0 ? `<tr><td colspan="${souGestor ? 9 : 8}" style="text-align:center;padding:2.5rem" class="muted">Nenhum pedido nesse período.</td></tr>` : ''}
-              ${M.map(p => `<tr>
+              ${hist.carregando ? `<tr><td colspan="${souGestor ? 10 : 9}" style="text-align:center;padding:2.5rem" class="muted">Carregando...</td></tr>` : ''}
+              ${!hist.carregando && M.length === 0 ? `<tr><td colspan="${souGestor ? 10 : 9}" style="text-align:center;padding:2.5rem" class="muted">Nenhum pedido nesse período.</td></tr>` : ''}
+              ${M.map(p => {
+                const dr = diasRestantes(p.entrega);
+                const drCls = dr < 0 ? 'b-danger' : dr === 0 ? 'b-warning' : 'b-secondary';
+                return `<tr>
                 <td style="font-weight:600">${esc(p.cliente)}</td>
                 <td class="muted">${esc(p.origem)}</td>
                 <td class="tc">${p.prioridade}</td>
                 <td>${fmtData(p.recebimento)}</td>
                 <td>${fmtData(p.entrega)}</td>
+                <td class="tc">${p.entregue ? `<span class="txt-muted">—</span>` : `<span class="tag ${drCls}">${dr < 0 ? Math.abs(dr) + ' atraso' : dr}</span>`}</td>
                 <td>${esc(p.etapa)}</td>
                 <td>${fmtMoeda(p.valor)}</td>
                 <td>${p.entregue
@@ -635,7 +639,7 @@ function pintarHistorico(){
                     ? `<span class="txt-danger">Atrasado</span>`
                     : `<span class="txt-muted">Em aberto</span>`}</td>
                 ${souGestor ? `<td class="tr"><button class="btn btn-ghost btn-icon" data-hexcluir="${p.id}" title="Excluir lançamento" style="color:var(--destructive)">🗑</button></td>` : ''}
-              </tr>`).join('')}
+              </tr>`; }).join('')}
             </tbody>
           </table>
         </div>
@@ -688,31 +692,86 @@ async function gerarPDF(){
     }
     const { jsPDF } = pdfLibs;
     const doc = new jsPDF({ orientation: 'landscape' });
-    doc.setFontSize(16);
+
+    const C_PRIO   = { 1: [233, 138, 122], 2: [242, 201, 110], 3: [168, 208, 150] };
+    const C_ETAPA  = {
+      'ESTOQUE': [228, 224, 215], 'GALVÂNICA': [184, 208, 232], 'BANHO': [186, 222, 220],
+      'CATAFORÉTICO': [212, 197, 231], 'PADRONIZAÇÃO': [245, 223, 168], 'FINALIZADO': [190, 224, 190],
+    };
+    const corEtapa = e => C_ETAPA[e] || ((e || '').includes('/') ? [231, 217, 199] : null);
+
+    doc.setFontSize(16); doc.setTextColor(45, 41, 34);
     doc.text('Histórico de Pedidos', 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Período (${hist.base === 'entrega' ? 'entrega' : 'recebimento'}): ${fmtData(hist.inicio)} a ${fmtData(hist.fim)}  ·  Emitido em ${fmtData(hoje())}  ·  ${hist.linhas.length} pedido(s)`, 14, 22);
+    doc.setFontSize(9); doc.setTextColor(90, 88, 82);
+    doc.text(`Período (${hist.base === 'entrega' ? 'entrega' : 'recebimento'}): ${fmtData(hist.inicio)} a ${fmtData(hist.fim)}  ·  Emitido em ${fmtData(hoje())}  ·  ${hist.linhas.length} pedido(s)`, 14, 21);
+
+    // legenda de cores
+    doc.setFontSize(7.5);
+    let lx = 14; const ly = 27;
+    const swatch = (rgb, txt) => {
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+      doc.roundedRect(lx, ly - 3, 3.6, 3.6, 0.5, 0.5, 'F');
+      doc.setTextColor(70, 68, 62);
+      doc.text(txt, lx + 5, ly);
+      lx += 5 + doc.getTextWidth(txt) + 7;
+    };
+    swatch(C_PRIO[1], 'Prioridade alta');
+    swatch(C_PRIO[2], 'Prioridade média');
+    swatch(C_PRIO[3], 'Prioridade baixa');
+    swatch([233, 138, 122], 'Atrasado');
+    swatch([242, 201, 110], 'Entrega hoje');
 
     const totalPedidos = hist.linhas.length;
     const somaValores = hist.linhas.reduce((s, p) => s + (Number(p.valor) || 0), 0);
 
     doc.autoTable({
-      startY: 27,
-      head: [['Cliente', 'Origem', 'Prior.', 'Recebimento', 'Entrega', 'Etapa', 'Entrada', 'Valor', 'Situação']],
-      body: hist.linhas.map(p => [
-        p.cliente, p.origem, String(p.prioridade), fmtData(p.recebimento), fmtData(p.entrega),
-        p.etapa, fmtData(p.data_entrada), fmtMoeda(p.valor),
-        p.entregue ? `Entregue ${fmtData(p.entregue_em)}` : diasRestantes(p.entrega) < 0 ? 'Atrasado' : 'Em aberto'
-      ]),
+      startY: 32,
+      head: [['Cliente', 'Origem', 'Prior.', 'Recebimento', 'Entrega', 'Dias rest.', 'Etapa', 'Entrada', 'Valor', 'Situação']],
+      body: hist.linhas.map(p => {
+        const dr = diasRestantes(p.entrega);
+        const diasTxt = p.entregue ? '—' : dr < 0 ? `${Math.abs(dr)} atraso` : dr === 0 ? 'hoje' : String(dr);
+        const sit = p.entregue ? `Entregue ${fmtData(p.entregue_em)}` : dr < 0 ? 'Atrasado' : 'Em aberto';
+        return [p.cliente, p.origem, String(p.prioridade), fmtData(p.recebimento), fmtData(p.entrega),
+                diasTxt, p.etapa, fmtData(p.data_entrada), fmtMoeda(p.valor), sit];
+      }),
       foot: [[
-        { content: `Total: ${totalPedidos} pedido(s)`, colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: fmtMoeda(somaValores), styles: { fontStyle: 'bold' } },
+        { content: `Total: ${totalPedidos} pedido(s)`, colSpan: 8, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: fmtMoeda(somaValores), styles: { fontStyle: 'bold', halign: 'right' } },
         ''
       ]],
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [45, 41, 34], textColor: [226, 183, 90] },
+      styles: { fontSize: 8, cellPadding: 1.8, lineColor: [223, 218, 208], lineWidth: 0.1, textColor: [40, 38, 34] },
+      headStyles: { fillColor: [45, 41, 34], textColor: [226, 183, 90], fontStyle: 'bold' },
       footStyles: { fillColor: [45, 41, 34], textColor: [226, 183, 90], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [249, 247, 242] },
+      columnStyles: {
+        2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' },
+        5: { halign: 'center' }, 7: { halign: 'center' }, 8: { halign: 'right' },
+      },
       showFoot: 'lastPage',
+      didParseCell: (d) => {
+        if (d.section !== 'body') return;
+        const p = hist.linhas[d.row.index];
+        if (!p) return;
+        const col = d.column.index, cs = d.cell.styles;
+        if (col === 2) {
+          cs.fillColor = C_PRIO[p.prioridade] || null;
+          cs.fontStyle = 'bold'; cs.textColor = [45, 38, 30];
+        } else if (col === 5) {
+          if (p.entregue) { cs.textColor = [140, 140, 140]; }
+          else {
+            const dr = diasRestantes(p.entrega);
+            if (dr < 0) { cs.fillColor = [233, 138, 122]; cs.textColor = [255, 255, 255]; cs.fontStyle = 'bold'; }
+            else if (dr === 0) { cs.fillColor = [242, 201, 110]; cs.textColor = [45, 38, 30]; cs.fontStyle = 'bold'; }
+          }
+        } else if (col === 6) {
+          const c = corEtapa(p.etapa);
+          if (c) cs.fillColor = c;
+        } else if (col === 9) {
+          const dr = diasRestantes(p.entrega);
+          cs.textColor = p.entregue ? [64, 148, 92] : dr < 0 ? [201, 74, 63] : [128, 128, 128];
+          if (p.entregue || dr < 0) cs.fontStyle = 'bold';
+        }
+      },
     });
     doc.save(`historico-pedidos-${hist.inicio}-a-${hist.fim}.pdf`);
   } catch (e) {
