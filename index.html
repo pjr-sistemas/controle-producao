@@ -160,7 +160,9 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 /* ===== Constantes ===== */
 const ORIGENS = ['PRESTAÇÃO', 'PEDIDO', 'VENDAS (JR)', 'VENDAS (BG)', 'VENDAS (BG) PROMO.'];
-const ETAPAS = ['ESTOQUE', 'ALMOXARIFADO', 'OFICINA', 'GALVÂNICA', 'BANHO', 'CATAFORÉTICO', 'PADRONIZAÇÃO', 'FINALIZADO'];
+const ETAPAS = ['ESTOQUE', 'GALVÂNICA', 'BANHO', 'CATAFORÉTICO', 'PADRONIZAÇÃO',
+  'ESTOQU/GALVÂN/PADRO', 'ESTOQU/GALVÂN', 'ESTOQU/PADRO', 'GALVÂN/PADRO', 'GALVÂN/CATAFOR',
+  'FINALIZADO'];
 const PRIORIDADES = [{ valor: 1, rotulo: '1 · Alta' }, { valor: 2, rotulo: '2 · Média' }, { valor: 3, rotulo: '3 · Baixa' }];
 
 /* ===== Helpers ===== */
@@ -404,7 +406,7 @@ function pintarResumo(){
                   <td>${fmtData(p.entrega)}</td>
                   <td class="tc"><span class="tag ${drCls}">${dr < 0 ? Math.abs(dr) + ' atraso' : dr}</span></td>
                   <td>${souGestor ? `
-                    <select class="field" data-etapa="${p.id}" style="height:2rem;width:170px">
+                    <select class="field" data-etapa="${p.id}" style="height:2rem;width:200px">
                       ${ETAPAS.map(e => `<option ${p.etapa===e?'selected':''}>${e}</option>`).join('')}
                     </select>` : esc(p.etapa)}
                   </td>
