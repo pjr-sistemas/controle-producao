@@ -390,11 +390,16 @@ function pintarResumo(){
               ${lista.map(p => {
                 const dr = diasRestantes(p.entrega);
                 const prioCls = p.prioridade === 1 ? 'b-danger' : p.prioridade === 2 ? 'b-warning' : 'b-success';
+                const prioColor = p.prioridade === 1 ? 'var(--danger)' : p.prioridade === 2 ? 'var(--warning)' : 'var(--success)';
                 const drCls = dr < 0 ? 'b-danger' : dr === 0 ? 'b-warning' : 'b-secondary';
                 return `<tr>
                   <td style="font-weight:600">${esc(p.cliente)}</td>
                   <td class="muted">${esc(p.origem)}</td>
-                  <td class="tc"><span class="pill prio ${prioCls}">${p.prioridade}</span></td>
+                  <td class="tc">${souGestor ? `
+                    <select class="field" data-prio="${p.id}" style="height:2rem;width:120px;font-weight:700;color:${prioColor}">
+                      ${PRIORIDADES.map(pr => `<option value="${pr.valor}" ${p.prioridade===pr.valor?'selected':''}>${pr.rotulo}</option>`).join('')}
+                    </select>` : `<span class="pill prio ${prioCls}">${p.prioridade}</span>`}
+                  </td>
                   <td>${fmtData(p.recebimento)}</td>
                   <td>${fmtData(p.entrega)}</td>
                   <td class="tc"><span class="tag ${drCls}">${dr < 0 ? Math.abs(dr) + ' atraso' : dr}</span></td>
@@ -431,6 +436,11 @@ function pintarResumo(){
     app.querySelectorAll('[data-etapa]').forEach(s => s.onchange = async () => {
       const { error } = await sb.from('pedidos').update({ etapa: s.value, data_entrada: hoje() }).eq('id', s.dataset.etapa);
       if (error){ toast('Não foi possível atualizar a etapa', 'err'); return; }
+      recarregarResumo();
+    });
+    app.querySelectorAll('[data-prio]').forEach(s => s.onchange = async () => {
+      const { error } = await sb.from('pedidos').update({ prioridade: Number(s.value) }).eq('id', s.dataset.prio);
+      if (error){ toast('Não foi possível atualizar a prioridade', 'err'); return; }
       recarregarResumo();
     });
     app.querySelectorAll('[data-entregar]').forEach(b => b.onclick = async () => {
