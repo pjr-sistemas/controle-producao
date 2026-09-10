@@ -393,7 +393,7 @@ function pintarResumo(){
                 const dr = diasRestantes(p.entrega);
                 const prioCls = p.prioridade === 1 ? 'b-danger' : p.prioridade === 2 ? 'b-warning' : 'b-success';
                 const prioColor = p.prioridade === 1 ? 'var(--danger)' : p.prioridade === 2 ? 'var(--warning)' : 'var(--success)';
-                const drCls = dr < 0 ? 'b-danger' : dr === 0 ? 'b-warning' : 'b-secondary';
+                const drCls = dr < 0 ? 'b-danger' : dr <= 2 ? 'b-warning' : 'b-success';
                 return `<tr>
                   <td style="font-weight:600">${esc(p.cliente)}</td>
                   <td class="muted">${esc(p.origem)}</td>
@@ -623,7 +623,7 @@ function pintarHistorico(){
               ${!hist.carregando && M.length === 0 ? `<tr><td colspan="${souGestor ? 10 : 9}" style="text-align:center;padding:2.5rem" class="muted">Nenhum pedido nesse período.</td></tr>` : ''}
               ${M.map(p => {
                 const dr = diasRestantes(p.entrega);
-                const drCls = dr < 0 ? 'b-danger' : dr === 0 ? 'b-warning' : 'b-secondary';
+                const drCls = dr < 0 ? 'b-danger' : dr <= 2 ? 'b-warning' : 'b-success';
                 return `<tr>
                 <td style="font-weight:600">${esc(p.cliente)}</td>
                 <td class="muted">${esc(p.origem)}</td>
@@ -719,7 +719,8 @@ async function gerarPDF(){
     swatch(C_PRIO[2], 'Prioridade média');
     swatch(C_PRIO[3], 'Prioridade baixa');
     swatch([233, 138, 122], 'Atrasado');
-    swatch([242, 201, 110], 'Entrega hoje');
+    swatch([242, 201, 110], 'Faltam 0 a 2 dias');
+    swatch([168, 208, 150], '3 dias ou mais');
 
     const totalPedidos = hist.linhas.length;
     const somaValores = hist.linhas.reduce((s, p) => s + (Number(p.valor) || 0), 0);
@@ -761,7 +762,8 @@ async function gerarPDF(){
           else {
             const dr = diasRestantes(p.entrega);
             if (dr < 0) { cs.fillColor = [233, 138, 122]; cs.textColor = [255, 255, 255]; cs.fontStyle = 'bold'; }
-            else if (dr === 0) { cs.fillColor = [242, 201, 110]; cs.textColor = [45, 38, 30]; cs.fontStyle = 'bold'; }
+            else if (dr <= 2) { cs.fillColor = [242, 201, 110]; cs.textColor = [45, 38, 30]; cs.fontStyle = 'bold'; }
+            else { cs.fillColor = [168, 208, 150]; cs.textColor = [45, 38, 30]; }
           }
         } else if (col === 6) {
           const c = corEtapa(p.etapa);
