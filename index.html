@@ -756,6 +756,10 @@ function pintarUsuarios(){
             <div class="stack-sm"><label for="nn">Nome</label><input class="field" id="nn"></div>
             <div class="stack-sm"><label for="ns">Senha</label><input class="field" id="ns" type="password" required></div>
             <button class="btn btn-primary" type="submit" id="criar">+ Criar</button>
+            <label style="grid-column:1/-1;display:flex;align-items:center;gap:.5rem;font-size:.88rem;font-weight:400;cursor:pointer;margin:0">
+              <input type="checkbox" id="ng" style="width:1rem;height:1rem;accent-color:var(--gold)">
+              Este acesso é <strong>gestor geral</strong> — pode criar/editar/apagar pedidos e gerenciar acessos
+            </label>
           </form>
         </div>
       </div>` : ''}
@@ -771,7 +775,11 @@ function pintarUsuarios(){
                 ${u.nome ? `<p class="muted" style="font-size:.85rem">${esc(u.nome)}</p>` : ''}
               </div>
               ${usu.souGestor ? `
-              <div style="display:flex;gap:.5rem">
+              <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+                ${u.id === usu.uid ? ''
+                  : u.gestor
+                    ? `<button class="btn btn-outline btn-sm" data-rmgestor="${esc(u.id)}" data-usuario="${esc(u.usuario)}">Tirar gestor</button>`
+                    : `<button class="btn btn-outline btn-sm" data-mkgestor="${esc(u.id)}" data-usuario="${esc(u.usuario)}" style="color:var(--gold)">Tornar gestor</button>`}
                 <button class="btn btn-outline btn-sm" data-senha="${esc(u.id)}" data-usuario="${esc(u.usuario)}">🔑 Senha</button>
                 ${u.id !== usu.uid ? `<button class="btn btn-outline btn-sm" data-rm="${esc(u.id)}" data-usuario="${esc(u.usuario)}">🗑</button>` : ''}
               </div>` : ''}
@@ -788,12 +796,16 @@ function pintarUsuarios(){
     usu.busy = true;
     const btn = document.getElementById('criar'); btn.disabled = true;
     try {
-      const { error } = await sb.rpc('criar_usuario', {
+      const { data: novoId, error } = await sb.rpc('criar_usuario', {
         p_usuario: document.getElementById('nu').value,
         p_senha: document.getElementById('ns').value,
         p_nome: document.getElementById('nn').value,
       });
       if (error) throw error;
+      if (document.getElementById('ng').checked && novoId){
+        const { error: e2 } = await sb.rpc('definir_gestor', { p_id: novoId, p_gestor: true });
+        if (e2) toast('Acesso criado, mas não consegui marcar como gestor: ' + e2.message, 'err');
+      }
       toast('Acesso criado');
       await carregarUsuarios();
     } catch (err) {
@@ -810,6 +822,22 @@ function pintarUsuarios(){
     const { error } = await sb.rpc('definir_senha', { p_id: b.dataset.senha, p_senha: nova });
     if (error){ toast(error.message || 'Não foi possível alterar a senha', 'err'); return; }
     toast('Senha atualizada');
+  });
+
+  app.querySelectorAll('[data-mkgestor]').forEach(b => b.onclick = async () => {
+    if (!confirm(`Tornar "${b.dataset.usuario}" gestor geral?\nEle poderá criar, editar e apagar pedidos, e gerenciar acessos.`)) return;
+    const { error } = await sb.rpc('definir_gestor', { p_id: b.dataset.mkgestor, p_gestor: true });
+    if (error){ toast(error.message || 'Não foi possível', 'err'); return; }
+    toast(`${b.dataset.usuario} agora é gestor geral`);
+    carregarUsuarios();
+  });
+
+  app.querySelectorAll('[data-rmgestor]').forEach(b => b.onclick = async () => {
+    if (!confirm(`Tirar o acesso de gestor de "${b.dataset.usuario}"?\nEle passa a só visualizar e gerar relatórios.`)) return;
+    const { error } = await sb.rpc('definir_gestor', { p_id: b.dataset.rmgestor, p_gestor: false });
+    if (error){ toast(error.message || 'Não foi possível', 'err'); return; }
+    toast(`${b.dataset.usuario} agora só visualiza`);
+    carregarUsuarios();
   });
 
   app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => {

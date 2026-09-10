@@ -7,8 +7,8 @@
 --  O que ele faz:
 --   1) garante as tabelas pedidos / perfis / user_roles (não mexe se já existem);
 --   2) garante as funções has_role() / existe_gestor() (só cria se faltarem);
---   3) cria as funções criar_usuario / definir_senha / remover_usuario
---      (substituem as "Cloud Functions" do Lovable, que a réplica não chama);
+--   3) cria as funções criar_usuario / definir_senha / remover_usuario /
+--      definir_gestor (substituem as "Cloud Functions" do Lovable);
 --   4) refaz as políticas de segurança (RLS):
 --        • pedidos: toda a equipe logada LÊ; só o gestor geral grava/edita/apaga;
 --        • perfis / user_roles: logado LÊ; escrita só pelas funções acima.
@@ -17,6 +17,8 @@
 --   • Login por USUÁRIO (vira o e-mail interno usuario@jrjoias.local).
 --   • 1º acesso do sistema  = GESTOR GERAL (papel 'gestor'), criado na tela de login.
 --   • Demais acessos        = só o gestor geral cria, na tela "Acessos".
+--   • Pode haver MAIS DE UM gestor geral (marcado na criação ou promovido depois).
+--     Todo gestor edita a planilha; os demais só visualizam / geram relatório.
 --   • SENHA LIVRE: qualquer tamanho ou formato (só não pode ficar em branco).
 -- ============================================================
 
@@ -170,12 +172,41 @@ begin
 end;
 $$;
 
+-- promove / rebaixa um acesso a gestor geral (só quem já é gestor pode)
+create or replace function public.definir_gestor(p_id uuid, p_gestor boolean)
+returns void
+language plpgsql security definer
+set search_path = public, auth
+as $$
+begin
+  if not public.has_role(auth.uid(), 'gestor') then
+    raise exception 'Apenas o gestor geral pode definir gestores';
+  end if;
+
+  if p_gestor then
+    if not exists (select 1 from public.user_roles where user_id = p_id and role::text = 'gestor') then
+      insert into public.user_roles (user_id, role) values (p_id, 'gestor');
+    end if;
+  else
+    if p_id = auth.uid() then
+      raise exception 'Você não pode tirar o seu próprio acesso de gestor';
+    end if;
+    if (select count(*) from public.user_roles where role::text = 'gestor') <= 1 then
+      raise exception 'Precisa existir pelo menos um gestor geral';
+    end if;
+    delete from public.user_roles where user_id = p_id and role::text = 'gestor';
+  end if;
+end;
+$$;
+
 revoke all on function public.criar_usuario(text, text, text) from public;
 revoke all on function public.definir_senha(uuid, text)      from public;
 revoke all on function public.remover_usuario(uuid)          from public;
+revoke all on function public.definir_gestor(uuid, boolean)  from public;
 grant execute on function public.criar_usuario(text, text, text) to anon, authenticated;  -- anon só passa no 1º acesso
 grant execute on function public.definir_senha(uuid, text)      to authenticated;
 grant execute on function public.remover_usuario(uuid)          to authenticated;
+grant execute on function public.definir_gestor(uuid, boolean)  to authenticated;
 
 -- ---------- 4. RLS ----------
 alter table public.pedidos     enable row level security;
